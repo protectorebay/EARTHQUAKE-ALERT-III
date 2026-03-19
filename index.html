@@ -49,7 +49,7 @@ html, body {
 
 #details {
   margin-top: 10px;
-  font-size: 13px; /* menšie kvôli GPS */
+  font-size: 13px;
   color: #aaa;
 }
 </style>
@@ -64,7 +64,7 @@ html, body {
 
 <script>
 var API_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
-var ALERT_SOUND_URL = "https://github.com/protectorebay/ALERTMP3/raw/refs/heads/main/alert.mp3";
+var ALERT_SOUND_URL = "https://github.com/protectorebay/Earth/raw/refs/heads/main/earth.MP3";
 
 var alertSound = new Audio(ALERT_SOUND_URL);
 alertSound.volume = 1.0;
@@ -95,7 +95,6 @@ function checkEarthquakes() {
     });
 }
 
-// TYPEWRITER
 function typeWriter(el, text, speed) {
   el.innerHTML = "";
   var i = 0;
@@ -146,10 +145,10 @@ function showAlert(event) {
 "⚠️ NEW EARTHQUAKE\n\n📍 " + place + "\n\n💥 Magnitude: " + mag;
 
   var detailText =
-"🌍 " + lat.toFixed(3) + ", " + lon.toFixed(3) + "\n" +
-"Depth: " + depth.toFixed(1) + " km\n" +
-"Type: " + type + "\n" +
-"UTC: " + utc;
+"<b>GPS: " + lat.toFixed(3) + ", " + lon.toFixed(3) + "</b>\n" +
+"<b>Depth: " + depth.toFixed(1) + " km</b>\n" +
+"<b>Type: " + type + "</b>\n" +
+"<b>UTC: " + utc + "</b>";
 
   alertBox.style.display = "block";
   alertBox.className = "show";
@@ -170,7 +169,6 @@ function showAlert(event) {
   timerInterval = setInterval(updateTimeAgo, 1000);
 }
 
-// ⏱️ MINUTES:SECONDS TIMER
 function updateTimeAgo() {
   if (!eventTime) return;
 
@@ -180,7 +178,6 @@ function updateTimeAgo() {
   var minutes = Math.floor(diff / 60);
   var seconds = diff % 60;
 
-  // padding
   if (seconds < 10) seconds = "0" + seconds;
   if (minutes < 10) minutes = "0" + minutes;
 
