@@ -49,7 +49,7 @@ html, body {
 
 #details {
   margin-top: 10px;
-  font-size: 14px;
+  font-size: 13px; /* menšie kvôli GPS */
   color: #aaa;
 }
 </style>
@@ -95,7 +95,7 @@ function checkEarthquakes() {
     });
 }
 
-// SIMPLE SAFE TYPEWRITER
+// TYPEWRITER
 function typeWriter(el, text, speed) {
   el.innerHTML = "";
   var i = 0;
@@ -133,6 +133,9 @@ function showAlert(event) {
   var depth = coords[2];
   if (!depth) depth = 0;
 
+  var lat = coords[1];
+  var lon = coords[0];
+
   var type = props.type || "earthquake";
 
   eventTime = props.time;
@@ -143,7 +146,10 @@ function showAlert(event) {
 "⚠️ NEW EARTHQUAKE\n\n📍 " + place + "\n\n💥 Magnitude: " + mag;
 
   var detailText =
-"Depth: " + depth.toFixed(1) + " km\nType: " + type + "\nUTC: " + utc;
+"🌍 " + lat.toFixed(3) + ", " + lon.toFixed(3) + "\n" +
+"Depth: " + depth.toFixed(1) + " km\n" +
+"Type: " + type + "\n" +
+"UTC: " + utc;
 
   alertBox.style.display = "block";
   alertBox.className = "show";
@@ -164,23 +170,21 @@ function showAlert(event) {
   timerInterval = setInterval(updateTimeAgo, 1000);
 }
 
+// ⏱️ MINUTES:SECONDS TIMER
 function updateTimeAgo() {
   if (!eventTime) return;
 
   var now = Date.now();
   var diff = Math.floor((now - eventTime) / 1000);
 
-  var text = "";
+  var minutes = Math.floor(diff / 60);
+  var seconds = diff % 60;
 
-  if (diff < 60) {
-    text = diff + "s ago";
-  } else if (diff < 3600) {
-    text = Math.floor(diff / 60) + "m ago";
-  } else {
-    text = Math.floor(diff / 3600) + "h ago";
-  }
+  // padding
+  if (seconds < 10) seconds = "0" + seconds;
+  if (minutes < 10) minutes = "0" + minutes;
 
-  document.getElementById("timeAgo").innerText = text;
+  document.getElementById("timeAgo").innerText = minutes + ":" + seconds + " ago";
 }
 
 setInterval(checkEarthquakes, 60000);
