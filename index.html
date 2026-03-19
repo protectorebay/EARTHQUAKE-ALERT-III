@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Earthquake Monitor</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+#alert {
+  display: none;
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 25px 40px;
+  border-radius: 12px;
+  font-size: 22px;
+  text-align: center;
+
+  border: 2px solid red;
+  box-shadow: 0 0 20px red;
+
+  opacity: 0;
+}
+
+.show {
+  animation: appear 0.5s ease forwards, pulse 2s infinite;
+}
+
+.flash {
+  animation: flashBorder 0.6s;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 10px red; }
+  50%  { box-shadow: 0 0 30px red; }
+  100% { box-shadow: 0 0 10px red; }
+}
+
+@keyframes flashBorder {
+  0% { box-shadow: 0 0 50px yellow; border-color: yellow; }
+  100% { box-shadow: 0 0 20px red; border-color: red; }
+}
+
+#timeAgo {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #ccc;
+}
+
+#details {
+  margin-top: 10px;
+  font-size: 15px;
+  color: #aaa;
+}
+</style>
+</head>
+<body>
+
+<div id="alert">
+  <div id="content"></div>
+  <div id="details"></div>
+  <div id="timeAgo"></div>
+</div>
+
+<script>
+const API_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
+const ALERT_SOUND_URL = "https://github.com/protectorebay/ALERTMP3/raw/refs/heads/main/alert.mp3";
+
+const alertSound = new Audio(ALERT_SOUND_URL);
+alertSound.volume = 1.0;
+
+let lastEventId = null;
+let eventTime = null;
+let timerInterval = null;
+
+async function checkEarthquakes() {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+
+    if (!data.features.length) return;
+
+    const latest = data.features[0];
+
+    if (latest.id !== lastEventId) {
+      lastEventId = latest.id;
+
+      showAlert(latest);
+    }
+  } catch (err) {
+    console.error("Error loading data:", err);
+  }
+}
+
+function typeWriter(element, text, speed = 15) {
+  element.innerHTML = "";
+  let i = 0;
+
+  function typing() {
+    if (i < text.length) {
+      element.innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typing, speed);
+    }
+  }
+
+  typing();
+}
+
+function showAlert(event) {
+  const alertBox = document.getElementById("alert");
+  const content = document.getElementById("content");
+  const details = document.getElementById("details");
+
+  const props = event.properties;
+  const coords = event.geometry.coordinates;
+
+  const place = props.place;
+  const magnitude = props.mag;
+  const depth = coords[2];
+  const type = props.type;
+
+  eventTime = props.time;
+
+  const utcTime = new Date(eventTime).toUTCString();
+  const localTime = new Date(eventTime).toLocaleString();
+
+  const mainText = 
+`⚠️ NEW EARTHQUAKE
+
+📍 ${place}
+
+💥 Magnitude: ${magnitude}`;
+
+  const detailText = 
+`Depth: ${depth.toFixed(1)} km
+Type: ${type}
+UTC: ${utcTime}
+Local: ${localTime}`;
+
+  alertBox.style.display = "block";
+
+  // animation reset
+  alertBox.classList.remove("show");
+  void alertBox.offsetWidth;
+  alertBox.classList.add("show", "flash");
+
+  // typing efekt
+  typeWriter(content, mainText, 10);
+  setTimeout(() => typeWriter(details, detailText, 5), 500);
+
+  // 🔊 sound
+  try {
+    alertSound.currentTime = 0;
+    alertSound.play().catch(() => {});
+  } catch {}
+
+  // timer reset
+  if (timerInterval) clearInterval(timerInterval);
+  updateTimeAgo();
+  timerInterval = setInterval(updateTimeAgo, 1000);
+}
+
+function updateTimeAgo() {
+  if (!eventTime) return;
+
+  const now = Date.now();
+  const diff = Math.floor((now - eventTime) / 1000);
+
+  let text = "";
+
+  if (diff < 60) {
+    text = `${diff}s ago`;
+  } else if (diff < 3600) {
+    text = `${Math.floor(diff / 60)}m ${diff % 60}s ago`;
+  } else {
+    text = `${Math.floor(diff / 3600)}h ago`;
+  }
+
+  document.getElementById("timeAgo").innerText = text;
+}
+
+// polling
+setInterval(checkEarthquakes, 60000);
+checkEarthquakes();
+</script>
+
+</body>
+</html>
