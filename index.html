@@ -95,6 +95,7 @@ function checkEarthquakes() {
     });
 }
 
+// TYPEWRITER (len pre hlavný text)
 function typeWriter(el, text, speed) {
   el.innerHTML = "";
   var i = 0;
@@ -153,10 +154,12 @@ function showAlert(event) {
   alertBox.style.display = "block";
   alertBox.className = "show";
 
+  // TYPEWRITER len pre hlavný text
   typeWriter(content, mainText, 15);
 
+  // DETAILS = normálne HTML (aby fungoval bold)
   setTimeout(function() {
-    typeWriter(details, detailText, 8);
+    details.innerHTML = detailText.replace(/\n/g, "<br>");
   }, 400);
 
   try {
@@ -169,6 +172,7 @@ function showAlert(event) {
   timerInterval = setInterval(updateTimeAgo, 1000);
 }
 
+// MM:SS TIMER
 function updateTimeAgo() {
   if (!eventTime) return;
 
