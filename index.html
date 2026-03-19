@@ -34,7 +34,7 @@ html, body {
 }
 
 .show {
-  animation: appear 0.5s ease forwards, pulse 2s infinite;
+  animation: appear 0.4s ease forwards, pulse 2s infinite;
 }
 
 .flash {
@@ -95,32 +95,45 @@ let lastEventId = null;
 let eventTime = null;
 let timerInterval = null;
 
+// SAFE FETCH
 async function checkEarthquakes() {
   try {
     const res = await fetch(API_URL);
+    if (!res.ok) return;
+
     const data = await res.json();
 
-    if (!data.features.length) return;
+    if (!data || !data.features || data.features.length === 0) return;
 
     const latest = data.features[0];
 
+    if (!latest || !latest.id) return;
+
     if (latest.id !== lastEventId) {
       lastEventId = latest.id;
-
       showAlert(latest);
     }
+
   } catch (err) {
-    console.error("Error loading data:", err);
+    console.log("API ERROR:", err);
   }
 }
 
+// FIXED TYPEWRITER (handles \n)
 function typeWriter(element, text, speed = 15) {
   element.innerHTML = "";
   let i = 0;
 
   function typing() {
     if (i < text.length) {
-      element.innerHTML += text.charAt(i);
+      const char = text[i];
+
+      if (char === "\n") {
+        element.innerHTML += "<br>";
+      } else {
+        element.innerHTML += char;
+      }
+
       i++;
       setTimeout(typing, speed);
     }
@@ -130,57 +143,67 @@ function typeWriter(element, text, speed = 15) {
 }
 
 function showAlert(event) {
-  const alertBox = document.getElementById("alert");
-  const content = document.getElementById("content");
-  const details = document.getElementById("details");
+  try {
+    const alertBox = document.getElementById("alert");
+    const content = document.getElementById("content");
+    const details = document.getElementById("details");
 
-  const props = event.properties;
-  const coords = event.geometry.coordinates;
+    const props = event.properties;
+    const coords = event.geometry.coordinates;
 
-  const place = props.place;
-  const magnitude = props.mag;
-  const depth = coords[2];
-  const type = props.type;
+    if (!props || !coords) return;
 
-  eventTime = props.time;
+    const place = props.place || "Unknown location";
+    const magnitude = props.mag ?? "?";
+    const depth = coords[2] ?? 0;
+    const type = props.type || "earthquake";
 
-  const utcTime = new Date(eventTime).toUTCString();
-  const localTime = new Date(eventTime).toLocaleString();
+    eventTime = props.time;
 
-  const mainText = 
+    const utcTime = new Date(eventTime).toUTCString();
+    const localTime = new Date(eventTime).toLocaleString();
+
+    const mainText =
 `⚠️ NEW EARTHQUAKE
 
 📍 ${place}
 
 💥 Magnitude: ${magnitude}`;
 
-  const detailText = 
+    const detailText =
 `Depth: ${depth.toFixed(1)} km
 Type: ${type}
 UTC: ${utcTime}
 Local: ${localTime}`;
 
-  alertBox.style.display = "block";
+    alertBox.style.display = "block";
 
-  // animation reset
-  alertBox.classList.remove("show");
-  void alertBox.offsetWidth;
-  alertBox.classList.add("show", "flash");
+    // restart animation
+    alertBox.classList.remove("show", "flash");
+    void alertBox.offsetWidth;
+    alertBox.classList.add("show", "flash");
 
-  // typing efekt
-  typeWriter(content, mainText, 10);
-  setTimeout(() => typeWriter(details, detailText, 5), 500);
+    // typing
+    typeWriter(content, mainText, 10);
+    setTimeout(() => {
+      typeWriter(details, detailText, 5);
+    }, 400);
 
-  // 🔊 sound
-  try {
-    alertSound.currentTime = 0;
-    alertSound.play().catch(() => {});
-  } catch {}
+    // sound (safe)
+    try {
+      alertSound.currentTime = 0;
+      alertSound.play().catch(() => {});
+    } catch {}
 
-  // timer reset
-  if (timerInterval) clearInterval(timerInterval);
-  updateTimeAgo();
-  timerInterval = setInterval(updateTimeAgo, 1000);
+    // timer reset
+    if (timerInterval) clearInterval(timerInterval);
+
+    updateTimeAgo();
+    timerInterval = setInterval(updateTimeAgo, 1000);
+
+  } catch (e) {
+    console.log("SHOW ALERT ERROR:", e);
+  }
 }
 
 function updateTimeAgo() {
@@ -199,12 +222,14 @@ function updateTimeAgo() {
     text = `${Math.floor(diff / 3600)}h ago`;
   }
 
-  document.getElementById("timeAgo").innerText = text;
+  const el = document.getElementById("timeAgo");
+  if (el) el.innerText = text;
 }
 
 // polling
 setInterval(checkEarthquakes, 60000);
 checkEarthquakes();
+
 </script>
 
 </body>
