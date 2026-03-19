@@ -18,7 +18,7 @@ html, body {
   position: absolute;
   top: 30%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.8);
+  transform: translate(-50%, -50%);
   
   background: rgba(0, 0, 0, 0.75);
   color: white;
@@ -29,38 +29,16 @@ html, body {
 
   border: 2px solid red;
   box-shadow: 0 0 20px red;
-
-  opacity: 0;
 }
 
 .show {
-  animation: appear 0.4s ease forwards, pulse 2s infinite;
-}
-
-.flash {
-  animation: flashBorder 0.6s;
-}
-
-@keyframes appear {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
+  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
   0%   { box-shadow: 0 0 10px red; }
   50%  { box-shadow: 0 0 30px red; }
   100% { box-shadow: 0 0 10px red; }
-}
-
-@keyframes flashBorder {
-  0% { box-shadow: 0 0 50px yellow; border-color: yellow; }
-  100% { box-shadow: 0 0 20px red; border-color: red; }
 }
 
 #timeAgo {
@@ -71,7 +49,7 @@ html, body {
 
 #details {
   margin-top: 10px;
-  font-size: 15px;
+  font-size: 14px;
   color: #aaa;
 }
 </style>
@@ -85,148 +63,126 @@ html, body {
 </div>
 
 <script>
-const API_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
-const ALERT_SOUND_URL = "https://github.com/protectorebay/ALERTMP3/raw/refs/heads/main/alert.mp3";
+var API_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
+var ALERT_SOUND_URL = "https://github.com/protectorebay/ALERTMP3/raw/refs/heads/main/alert.mp3";
 
-const alertSound = new Audio(ALERT_SOUND_URL);
+var alertSound = new Audio(ALERT_SOUND_URL);
 alertSound.volume = 1.0;
 
-let lastEventId = null;
-let eventTime = null;
-let timerInterval = null;
+var lastEventId = null;
+var eventTime = null;
+var timerInterval = null;
 
-// SAFE FETCH
-async function checkEarthquakes() {
-  try {
-    const res = await fetch(API_URL);
-    if (!res.ok) return;
+function checkEarthquakes() {
+  fetch(API_URL)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
 
-    const data = await res.json();
+      if (!data || !data.features || data.features.length === 0) return;
 
-    if (!data || !data.features || data.features.length === 0) return;
+      var latest = data.features[0];
 
-    const latest = data.features[0];
+      if (!latest || !latest.id) return;
 
-    if (!latest || !latest.id) return;
-
-    if (latest.id !== lastEventId) {
-      lastEventId = latest.id;
-      showAlert(latest);
-    }
-
-  } catch (err) {
-    console.log("API ERROR:", err);
-  }
-}
-
-// FIXED TYPEWRITER (handles \n)
-function typeWriter(element, text, speed = 15) {
-  element.innerHTML = "";
-  let i = 0;
-
-  function typing() {
-    if (i < text.length) {
-      const char = text[i];
-
-      if (char === "\n") {
-        element.innerHTML += "<br>";
-      } else {
-        element.innerHTML += char;
+      if (latest.id !== lastEventId) {
+        lastEventId = latest.id;
+        showAlert(latest);
       }
 
+    })
+    .catch(function(err) {
+      console.log("API error:", err);
+    });
+}
+
+// SIMPLE SAFE TYPEWRITER
+function typeWriter(el, text, speed) {
+  el.innerHTML = "";
+  var i = 0;
+
+  function write() {
+    if (i < text.length) {
+      var c = text.charAt(i);
+      if (c === "\n") {
+        el.innerHTML += "<br>";
+      } else {
+        el.innerHTML += c;
+      }
       i++;
-      setTimeout(typing, speed);
+      setTimeout(write, speed);
     }
   }
 
-  typing();
+  write();
 }
 
 function showAlert(event) {
+  var alertBox = document.getElementById("alert");
+  var content = document.getElementById("content");
+  var details = document.getElementById("details");
+
+  var props = event.properties;
+  var coords = event.geometry.coordinates;
+
+  if (!props || !coords) return;
+
+  var place = props.place || "Unknown";
+  var mag = props.mag;
+  if (mag === null || mag === undefined) mag = "?";
+
+  var depth = coords[2];
+  if (!depth) depth = 0;
+
+  var type = props.type || "earthquake";
+
+  eventTime = props.time;
+
+  var utc = new Date(eventTime).toUTCString();
+
+  var mainText =
+"⚠️ NEW EARTHQUAKE\n\n📍 " + place + "\n\n💥 Magnitude: " + mag;
+
+  var detailText =
+"Depth: " + depth.toFixed(1) + " km\nType: " + type + "\nUTC: " + utc;
+
+  alertBox.style.display = "block";
+  alertBox.className = "show";
+
+  typeWriter(content, mainText, 15);
+
+  setTimeout(function() {
+    typeWriter(details, detailText, 8);
+  }, 400);
+
   try {
-    const alertBox = document.getElementById("alert");
-    const content = document.getElementById("content");
-    const details = document.getElementById("details");
+    alertSound.currentTime = 0;
+    alertSound.play();
+  } catch (e) {}
 
-    const props = event.properties;
-    const coords = event.geometry.coordinates;
-
-    if (!props || !coords) return;
-
-    const place = props.place || "Unknown location";
-    const magnitude = props.mag ?? "?";
-    const depth = coords[2] ?? 0;
-    const type = props.type || "earthquake";
-
-    eventTime = props.time;
-
-    const utcTime = new Date(eventTime).toUTCString();
-    const localTime = new Date(eventTime).toLocaleString();
-
-    const mainText =
-`⚠️ NEW EARTHQUAKE
-
-📍 ${place}
-
-💥 Magnitude: ${magnitude}`;
-
-    const detailText =
-`Depth: ${depth.toFixed(1)} km
-Type: ${type}
-UTC: ${utcTime}
-Local: ${localTime}`;
-
-    alertBox.style.display = "block";
-
-    // restart animation
-    alertBox.classList.remove("show", "flash");
-    void alertBox.offsetWidth;
-    alertBox.classList.add("show", "flash");
-
-    // typing
-    typeWriter(content, mainText, 10);
-    setTimeout(() => {
-      typeWriter(details, detailText, 5);
-    }, 400);
-
-    // sound (safe)
-    try {
-      alertSound.currentTime = 0;
-      alertSound.play().catch(() => {});
-    } catch {}
-
-    // timer reset
-    if (timerInterval) clearInterval(timerInterval);
-
-    updateTimeAgo();
-    timerInterval = setInterval(updateTimeAgo, 1000);
-
-  } catch (e) {
-    console.log("SHOW ALERT ERROR:", e);
-  }
+  if (timerInterval) clearInterval(timerInterval);
+  updateTimeAgo();
+  timerInterval = setInterval(updateTimeAgo, 1000);
 }
 
 function updateTimeAgo() {
   if (!eventTime) return;
 
-  const now = Date.now();
-  const diff = Math.floor((now - eventTime) / 1000);
+  var now = Date.now();
+  var diff = Math.floor((now - eventTime) / 1000);
 
-  let text = "";
+  var text = "";
 
   if (diff < 60) {
-    text = `${diff}s ago`;
+    text = diff + "s ago";
   } else if (diff < 3600) {
-    text = `${Math.floor(diff / 60)}m ${diff % 60}s ago`;
+    text = Math.floor(diff / 60) + "m ago";
   } else {
-    text = `${Math.floor(diff / 3600)}h ago`;
+    text = Math.floor(diff / 3600) + "h ago";
   }
 
-  const el = document.getElementById("timeAgo");
-  if (el) el.innerText = text;
+  document.getElementById("timeAgo").innerText = text;
 }
 
-// polling
 setInterval(checkEarthquakes, 60000);
 checkEarthquakes();
 
